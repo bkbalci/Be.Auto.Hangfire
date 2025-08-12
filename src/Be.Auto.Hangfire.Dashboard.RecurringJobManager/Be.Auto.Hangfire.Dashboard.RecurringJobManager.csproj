@@ -21,7 +21,7 @@
       <PackageProjectUrl>https://github.com/bkbalci/Be.Auto.Hangfire</PackageProjectUrl>
       <RepositoryUrl>https://github.com/bkbalci/Be.Auto.Hangfire.git</RepositoryUrl>
       <PackageLicenseExpression>MIT</PackageLicenseExpression>
-      <Version>1.1.3</Version>
+      <Version>1.1.4</Version>
       <PackOnBuild>true</PackOnBuild>
       <Description>
         A fork of Be.Auto.Hangfire.Dashboard.RecurringJobManager with bug fixes and enhancements.
@@ -34,8 +34,7 @@
       <LangVersion>12</LangVersion>
       <PackageReadmeFile>README.md</PackageReadmeFile>
       <PackageReleaseNotes>
-        Fork of original project with following fixes:
-        - Fixed issue #1: Parameterless jobs not being added correctly.
+          Enhanced job scheduling UI with timezone search and cron expression builder
       </PackageReleaseNotes>
       <PackageTags>fork;bugfix;enhanced</PackageTags>
   </PropertyGroup>
