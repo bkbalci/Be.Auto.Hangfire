@@ -31,7 +31,8 @@ namespace Be.Auto.Hangfire.Dashboard.RecurringJobManager.Core.Extensions
             if (job.TimeZone == null)
                 throw new RecurringJobException("Job registration failed: The specified 'TimeZone' could not be found. Please provide a valid time zone.");
 
-            if (!CronExpression.TryParse(job.Cron,CronFormat.IncludeSeconds,out _))
+            if (!CronExpression.TryParse(job.Cron, CronFormat.IncludeSeconds, out _) && 
+                !CronExpression.TryParse(job.Cron, CronFormat.Standard, out _))
                 throw new RecurringJobException($"Job registration failed: The provided Cron expression '{job.Cron}' is invalid. Please provide a valid Cron expression.");
 
             switch (job.JobType)

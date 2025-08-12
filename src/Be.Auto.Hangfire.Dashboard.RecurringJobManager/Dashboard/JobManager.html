@@ -2,6 +2,50 @@
 <link rel="stylesheet" type="text/css" href="job-manager/css/app" />
 <link rel="stylesheet" type="text/css" href="job-manager/css/fontawesome" />
 
+<style>
+.timezone-search-container {
+    position: relative;
+}
+
+.timezone-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ccc;
+    border-top: none;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.timezone-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+.timezone-option:hover {
+    background-color: #f5f5f5;
+}
+
+.timezone-option.active {
+    background-color: #337ab7;
+    color: white;
+}
+
+.timezone-option.active small {
+    color: #ddd;
+}
+
+.timezone-more {
+    padding: 8px 12px;
+    font-style: italic;
+}
+</style>
+
 
 <script src="job-manager/js/vue"></script>
 <script src="job-manager/js/axio"></script>
@@ -81,16 +125,41 @@
                 </div>
                 <div class="form-group">
                     <label for="TimeZoneId">Time Zone</label>
-                    <select id="TimeZoneId" name="TimeZoneId" class="form-control" v-model="job.TimeZoneId">
-                        <option value="">Please select</option>
-                        <option v-for="(item, index) in timeZones" :key="index" :value="item.Item1">{{ item.Item2 }}</option>
-                    </select>
+                    <div class="timezone-search-container">
+                        <input type="text" 
+                               class="form-control timezone-search" 
+                               v-model="timezoneSearchTerm" 
+                               @focus="showTimezoneDropdown = true"
+                               @blur="hideTimezoneDropdown"
+                               placeholder="Search timezone or select UTC..."
+                               autocomplete="off">
+                        <input type="hidden" id="TimeZoneId" name="TimeZoneId" v-model="job.TimeZoneId">
+                        <div class="timezone-dropdown" v-show="showTimezoneDropdown && filteredTimeZones.length > 0">
+                            <div class="timezone-option" 
+                                 v-for="(item, index) in filteredTimeZones.slice(0, 10)" 
+                                 :key="index"
+                                 @mousedown="selectTimezone(item)"
+                                 :class="{ active: job.TimeZoneId === item.Item1 }">
+                                <strong>{{ item.Item1 }}</strong><br>
+                                <small class="text-muted">{{ item.Item2 }}</small>
+                            </div>
+                            <div v-if="filteredTimeZones.length > 10" class="timezone-more text-muted text-center">
+                                ... and {{ filteredTimeZones.length - 10 }} more. Continue typing to narrow down.
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label for="Cron">Cron</label>
-                    <input type="text" class="form-control" v-model="job.Cron" id="Cron" name="Cron" placeholder="Example: */5 * * * * *">
-
+                    <div class="input-group">
+                        <input type="text" class="form-control" v-model="job.Cron" id="Cron" name="Cron" placeholder="Example: 0 */5 * * * * or */5 * * * *">
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-info" @click="openCronBuilder" title="Cron Builder">
+                                <i class="fa fa-clock"></i>
+                            </button>
+                        </span>
+                    </div>
                 </div>
 
                 <div class="form-group" v-show="job.JobType === 'MethodCall'">
@@ -178,6 +247,153 @@
         </template>
     </modal>
 
+    <!-- Cron Builder Modal -->
+    <modal v-show="showCronBuilderModal" @close="closeCronBuilderModal">
+        <template v-slot:header>
+            <h3>Cron Expression Builder</h3>
+        </template>
+        <template v-slot:body>
+            <div class="cron-builder">
+                <div class="row">
+                    <div class="col-md-12">
+                        <p class="text-muted">Build your cron expression by selecting values for each time unit:</p>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-2">
+                        <label>Seconds</label>
+                        <select class="form-control" v-model="cronBuilder.seconds" @change="generateCronExpression">
+                            <option value="*">Every second (*)</option>
+                            <option value="0">0</option>
+                            <option v-for="n in 59" :key="n" :value="n">{{ n }}</option>
+                            <option value="*/5">Every 5 seconds (*/5)</option>
+                            <option value="*/10">Every 10 seconds (*/10)</option>
+                            <option value="*/15">Every 15 seconds (*/15)</option>
+                            <option value="*/30">Every 30 seconds (*/30)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label>Minutes</label>
+                        <select class="form-control" v-model="cronBuilder.minutes" @change="generateCronExpression">
+                            <option value="*">Every minute (*)</option>
+                            <option value="0">0</option>
+                            <option v-for="n in 59" :key="n" :value="n">{{ n }}</option>
+                            <option value="*/5">Every 5 minutes (*/5)</option>
+                            <option value="*/10">Every 10 minutes (*/10)</option>
+                            <option value="*/15">Every 15 minutes (*/15)</option>
+                            <option value="*/30">Every 30 minutes (*/30)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label>Hours</label>
+                        <select class="form-control" v-model="cronBuilder.hours" @change="generateCronExpression">
+                            <option value="*">Every hour (*)</option>
+                            <option v-for="n in 23" :key="n" :value="n">{{ n.toString().padStart(2, '0') }}</option>
+                            <option value="*/2">Every 2 hours (*/2)</option>
+                            <option value="*/3">Every 3 hours (*/3)</option>
+                            <option value="*/6">Every 6 hours (*/6)</option>
+                            <option value="*/12">Every 12 hours (*/12)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label>Day of Month</label>
+                        <select class="form-control" v-model="cronBuilder.dayOfMonth" @change="generateCronExpression">
+                            <option value="*">Every day (*)</option>
+                            <option v-for="n in 31" :key="n" :value="n">{{ n }}</option>
+                            <option value="*/2">Every 2 days (*/2)</option>
+                            <option value="*/5">Every 5 days (*/5)</option>
+                            <option value="1">First day (1)</option>
+                            <option value="L">Last day (L)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label>Month</label>
+                        <select class="form-control" v-model="cronBuilder.month" @change="generateCronExpression">
+                            <option value="*">Every month (*)</option>
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                            <option value="*/3">Every 3 months (*/3)</option>
+                            <option value="*/6">Every 6 months (*/6)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label>Day of Week</label>
+                        <select class="form-control" v-model="cronBuilder.dayOfWeek" @change="generateCronExpression">
+                            <option value="*">Every day (*)</option>
+                            <option value="0">Sunday</option>
+                            <option value="1">Monday</option>
+                            <option value="2">Tuesday</option>
+                            <option value="3">Wednesday</option>
+                            <option value="4">Thursday</option>
+                            <option value="5">Friday</option>
+                            <option value="6">Saturday</option>
+                            <option value="1-5">Weekdays (1-5)</option>
+                            <option value="0,6">Weekends (0,6)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row" style="margin-top: 20px;">
+                    <div class="col-md-12">
+                        <label>Generated Cron Expression:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" v-model="generatedCron" readonly style="background-color: #f9f9f9;">
+                            <span class="input-group-btn">
+                                <button type="button" class="btn btn-default" @click="copyToClipboard" title="Copy to clipboard">
+                                    <i class="fa fa-copy"></i>
+                                </button>
+                            </span>
+                        </div>
+                        <small class="text-muted">
+                            Format: Seconds Minutes Hours DayOfMonth Month DayOfWeek
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="row" style="margin-top: 15px;">
+                    <div class="col-md-12">
+                        <div class="panel panel-info">
+                            <div class="panel-heading">
+                                <h4 class="panel-title">Quick Presets</h4>
+                            </div>
+                            <div class="panel-body">
+                                <button type="button" class="btn btn-sm btn-default" @click="applyCronPreset('0 * * * * *')" style="margin: 2px;">Every minute</button>
+                                <button type="button" class="btn btn-sm btn-default" @click="applyCronPreset('0 */5 * * * *')" style="margin: 2px;">Every 5 minutes</button>
+                                <button type="button" class="btn btn-sm btn-default" @click="applyCronPreset('0 0 * * * *')" style="margin: 2px;">Every hour</button>
+                                <button type="button" class="btn btn-sm btn-default" @click="applyCronPreset('0 0 */6 * * *')" style="margin: 2px;">Every 6 hours</button>
+                                <button type="button" class="btn btn-sm btn-default" @click="applyCronPreset('0 0 0 * * *')" style="margin: 2px;">Daily at midnight</button>
+                                <button type="button" class="btn btn-sm btn-default" @click="applyCronPreset('0 0 9 * * 1-5')" style="margin: 2px;">Weekdays at 9 AM</button>
+                                <button type="button" class="btn btn-sm btn-default" @click="applyCronPreset('0 0 0 * * 0')" style="margin: 2px;">Weekly (Sunday)</button>
+                                <button type="button" class="btn btn-sm btn-default" @click="applyCronPreset('0 0 0 1 * *')" style="margin: 2px;">Monthly (1st day)</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+        <template v-slot:footer>
+            <button class="btn btn-success" @click="applyCronExpression">
+                <i class="fas fa-check"></i>
+                Apply Expression
+            </button>
+        </template>
+    </modal>
 
 
 
@@ -388,6 +604,7 @@
             const jobs = ref(null);
             const bodyParameterXmlOrText = ref('');
             const showModal = ref(false);
+            const showCronBuilderModal = ref(false);
             const errors = ref([]);
             const timeZones = ref([]);
             const jobTypes = ref([]);
@@ -402,6 +619,17 @@
             const methodParametersIsExist = ref(false);
             const isInProgress = ref(false);
             const searchTerm = ref('');
+            const generatedCron = ref('* * * * * *');
+            const timezoneSearchTerm = ref('');
+            const showTimezoneDropdown = ref(false);
+            const cronBuilder = ref({
+                seconds: '*',
+                minutes: '*',
+                hours: '*',
+                dayOfMonth: '*',
+                month: '*',
+                dayOfWeek: '*'
+            });
             const job = ref({
                 Id: '',
                 Guid: '',
@@ -735,8 +963,13 @@
                         const jobData = response.data.Object;
                         job.value = { ...job.value, ...jobData };
 
-
-
+                        // Set timezone search term for edit mode
+                        if (job.value.TimeZoneId) {
+                            const selectedTimezone = timeZones.value.find(tz => tz.Item1 === job.value.TimeZoneId);
+                            if (selectedTimezone) {
+                                timezoneSearchTerm.value = `${selectedTimezone.Item1} - ${selectedTimezone.Item2}`;
+                            }
+                        }
 
                         switch (job.value.BodyParameterType) {
                             case "Xml":
@@ -812,6 +1045,10 @@
             const getTimeZones = () => {
                 axios.get('job-manager/get-time-zones').then(response => {
                     timeZones.value = response.data;
+                    // Set default timezone if opening new job modal
+                    if (title.value === 'Add New Job' && showModal.value) {
+                        setDefaultTimezone();
+                    }
                 }).catch(e => {
                     console.log(e);
                 });
@@ -1220,12 +1457,18 @@
                     MethodParameters: ''
                 };
                 errors.value = [];
+                timezoneSearchTerm.value = '';
+                showTimezoneDropdown.value = false;
                 showModal.value = false;
             };
 
             const OpenModal = () => {
                 title.value = 'Add New Job';
                 showModal.value = true;
+                // Set default timezone after modal opens
+                nextTick(() => {
+                    setDefaultTimezone();
+                });
             };
 
             const checkForm = () => {
@@ -1363,12 +1606,142 @@
                 return `rgb(${r}, ${g}, ${b})`;
             };
 
+            // Cron Builder Functions
+            const openCronBuilder = () => {
+                if (job.value.Cron) {
+                    parseCronExpression(job.value.Cron);
+                }
+                showCronBuilderModal.value = true;
+                generateCronExpression();
+            };
+
+            const closeCronBuilderModal = () => {
+                showCronBuilderModal.value = false;
+            };
+
+            const generateCronExpression = () => {
+                generatedCron.value = `${cronBuilder.value.seconds} ${cronBuilder.value.minutes} ${cronBuilder.value.hours} ${cronBuilder.value.dayOfMonth} ${cronBuilder.value.month} ${cronBuilder.value.dayOfWeek}`;
+            };
+
+            const parseCronExpression = (cronExpression) => {
+                if (!cronExpression) return;
+                
+                const parts = cronExpression.trim().split(' ');
+                if (parts.length === 6) {
+                    cronBuilder.value.seconds = parts[0];
+                    cronBuilder.value.minutes = parts[1];
+                    cronBuilder.value.hours = parts[2];
+                    cronBuilder.value.dayOfMonth = parts[3];
+                    cronBuilder.value.month = parts[4];
+                    cronBuilder.value.dayOfWeek = parts[5];
+                } else if (parts.length === 5) {
+                    // Handle 5-field cron (no seconds)
+                    cronBuilder.value.seconds = '0';
+                    cronBuilder.value.minutes = parts[0];
+                    cronBuilder.value.hours = parts[1];
+                    cronBuilder.value.dayOfMonth = parts[2];
+                    cronBuilder.value.month = parts[3];
+                    cronBuilder.value.dayOfWeek = parts[4];
+                }
+            };
+
+            const applyCronExpression = () => {
+                job.value.Cron = generatedCron.value;
+                closeCronBuilderModal();
+            };
+
+            const applyCronPreset = (preset) => {
+                const parts = preset.split(' ');
+                cronBuilder.value.seconds = parts[0];
+                cronBuilder.value.minutes = parts[1];
+                cronBuilder.value.hours = parts[2];
+                cronBuilder.value.dayOfMonth = parts[3];
+                cronBuilder.value.month = parts[4];
+                cronBuilder.value.dayOfWeek = parts[5];
+                generateCronExpression();
+            };
+
+            const copyToClipboard = () => {
+                navigator.clipboard.writeText(generatedCron.value).then(() => {
+                    // Optional: Show success message
+                    console.log('Cron expression copied to clipboard');
+                }).catch(err => {
+                    console.error('Failed to copy: ', err);
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = generatedCron.value;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                });
+            };
+
+            // Timezone search functions
+            const normalizeTimezoneSearch = (searchTerm) => {
+                // Normalize UTC offset formats: UTC+3 -> UTC+03, UTC-5 -> UTC-05
+                return searchTerm.replace(/utc([+-])(\d)(\D|$)/gi, (match, sign, digit, after) => {
+                    return `utc${sign}0${digit}${after}`;
+                });
+            };
+
+            const filteredTimeZones = computed(() => {
+                if (!timeZones.value) return [];
+                
+                const searchLower = timezoneSearchTerm.value.toLowerCase();
+                if (!searchLower) {
+                    // If no search term, show UTC first, then others
+                    const utcTimezone = timeZones.value.find(tz => tz.Item1 === 'UTC');
+                    const otherTimezones = timeZones.value.filter(tz => tz.Item1 !== 'UTC');
+                    return utcTimezone ? [utcTimezone, ...otherTimezones] : timeZones.value;
+                }
+                
+                const normalizedSearch = normalizeTimezoneSearch(searchLower);
+                
+                return timeZones.value.filter(tz => {
+                    const timezoneId = tz.Item1.toLowerCase();
+                    const timezoneDesc = tz.Item2.toLowerCase();
+                    const normalizedTimezoneId = normalizeTimezoneSearch(timezoneId);
+                    const normalizedTimezoneDesc = normalizeTimezoneSearch(timezoneDesc);
+                    
+                    return timezoneId.includes(searchLower) || 
+                           timezoneDesc.includes(searchLower) ||
+                           normalizedTimezoneId.includes(normalizedSearch) ||
+                           normalizedTimezoneDesc.includes(normalizedSearch) ||
+                           timezoneId.includes(normalizedSearch) ||
+                           timezoneDesc.includes(normalizedSearch);
+                });
+            });
+
+            const selectTimezone = (timezone) => {
+                job.value.TimeZoneId = timezone.Item1;
+                timezoneSearchTerm.value = `${timezone.Item1} - ${timezone.Item2}`;
+                showTimezoneDropdown.value = false;
+            };
+
+            const hideTimezoneDropdown = () => {
+                setTimeout(() => {
+                    showTimezoneDropdown.value = false;
+                }, 200); // Delay to allow click events to register
+            };
+
+            const setDefaultTimezone = () => {
+                if (!job.value.TimeZoneId && timeZones.value) {
+                    const utcTimezone = timeZones.value.find(tz => tz.Item1 === 'UTC');
+                    if (utcTimezone) {
+                        job.value.TimeZoneId = 'UTC';
+                        timezoneSearchTerm.value = `UTC - ${utcTimezone.Item2}`;
+                    }
+                }
+            };
+
 
 
             return {
                 title,
                 jobs,
                 showModal,
+                showCronBuilderModal,
                 errors,
                 timeZones,
                 jobTypes,
@@ -1384,6 +1757,8 @@
                 pagination,
                 selectedJobType,
                 headerCount,
+                generatedCron,
+                cronBuilder,
                 initBodyParametersJsonEditor,
                 initHeaderParametersJsonEditor,
                 onJobTypeChange,
@@ -1425,7 +1800,19 @@
                 deleteSelectedJobs,
                 generateUUID,
                 stringToColor,
-                hashString
+                hashString,
+                openCronBuilder,
+                closeCronBuilderModal,
+                generateCronExpression,
+                applyCronExpression,
+                applyCronPreset,
+                copyToClipboard,
+                timezoneSearchTerm,
+                showTimezoneDropdown,
+                filteredTimeZones,
+                selectTimezone,
+                hideTimezoneDropdown,
+                setDefaultTimezone
 
             };
         },
