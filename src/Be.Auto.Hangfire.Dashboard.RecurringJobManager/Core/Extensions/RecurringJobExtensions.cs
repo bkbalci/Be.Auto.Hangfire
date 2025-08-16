@@ -40,11 +40,14 @@ namespace Be.Auto.Hangfire.Dashboard.RecurringJobManager.Core.Extensions
                 case JobType.WebRequest:
                     if (job is RecurringJobWebRequest webRequestJob)
                     {
+
+                        webRequestJob.UrlPath ??= string.Empty;
+
                         if (string.IsNullOrEmpty(webRequestJob.HostName))
                             throw new RecurringJobException("Job registration failed: The 'HostName' field cannot be null or empty.");
 
-                        if (string.IsNullOrEmpty(webRequestJob.UrlPath))
-                            throw new RecurringJobException("Job registration failed: The 'UrlPath' field cannot be null or empty.");
+                        if (!Uri.TryCreate(webRequestJob.HostName, UriKind.RelativeOrAbsolute, out var _))
+                            throw new RecurringJobException("Job registration failed: The 'HostName' invalid Uri!");
 
                         switch (webRequestJob.BodyParameterType)
                         {
@@ -103,7 +106,7 @@ namespace Be.Auto.Hangfire.Dashboard.RecurringJobManager.Core.Extensions
                                 BodyParameters = webRequestJob.BodyParameters,
                                 BodyParameterType = webRequestJob.BodyParameterType,
                                 UrlPath = webRequestJob.UrlPath,
-                                HeaderParameters = webRequestJob.HeaderParameters.UnescapeJson().DeserializeObjectFromJson<List<HttpHeaderParameter>>(),
+                                HeaderParameters = webRequestJob.HeaderParameters.UnescapeMulti().DeserializeObjectFromJson<List<HttpHeaderParameter>>(),
                                 HostName = webRequestJob.HostName,
                                 HttpMethod = webRequestJob.HttpMethod,
 
@@ -143,7 +146,7 @@ namespace Be.Auto.Hangfire.Dashboard.RecurringJobManager.Core.Extensions
 
                         try
                         {
-                            var parametersFromJob = method.GetDefaultParameters(methodCallJob) ?? [];
+                            var parametersFromJob = method.GetDefaultParameters(methodCallJob);
                             var defaultParameters = method.GetDefaultParameters();
 
                             if (parametersFromJob.Length != defaultParameters.Length)
