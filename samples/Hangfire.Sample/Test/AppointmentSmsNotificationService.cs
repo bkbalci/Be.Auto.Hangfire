@@ -48,5 +48,28 @@
                 throw;
             }
         }
+
+        public async Task SendSmsWithCancellation(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var jobId = Guid.NewGuid();
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Job {jobId} started - Message: Test");
+
+                for (var i = 0; i < 60; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Job {jobId} - Working... {i + 1}/{60}");
+                    await Task.Delay(1000, cancellationToken);
+                }
+
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Job {jobId} completed successfully!");
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("OperationCanceledException");
+                throw;
+            }
+        }
     }
 }

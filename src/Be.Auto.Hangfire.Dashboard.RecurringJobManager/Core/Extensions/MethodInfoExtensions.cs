@@ -29,8 +29,16 @@ namespace Be.Auto.Hangfire.Dashboard.RecurringJobManager.Core.Extensions
 
         public static object[] GetDefaultParameters(this MethodInfo @this, RecurringJobMethodCall job)
         {
+            var methodParams = @this.GetParameters();
+
             if (string.IsNullOrEmpty(job.MethodParameters))
+            {
+                if (methodParams.All(p => IsCancellationTokenType(p.ParameterType)))
+                {
+                    return methodParams.Select(_ => (object)null).ToArray();
+                }
                 return [];
+            }
 
             var parameters = (object[])JsonConvert.DeserializeObject(
                 job.MethodParameters,
