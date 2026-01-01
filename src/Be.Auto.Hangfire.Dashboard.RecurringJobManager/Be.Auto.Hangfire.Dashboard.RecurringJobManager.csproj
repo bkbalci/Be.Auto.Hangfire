@@ -21,7 +21,7 @@
       <PackageProjectUrl>https://github.com/bkbalci/Be.Auto.Hangfire</PackageProjectUrl>
       <RepositoryUrl>https://github.com/bkbalci/Be.Auto.Hangfire.git</RepositoryUrl>
       <PackageLicenseExpression>MIT</PackageLicenseExpression>
-      <Version>1.1.4</Version>
+      <Version>1.1.5</Version>
       <PackOnBuild>true</PackOnBuild>
       <Description>
         A fork of Be.Auto.Hangfire.Dashboard.RecurringJobManager with bug fixes and enhancements.
