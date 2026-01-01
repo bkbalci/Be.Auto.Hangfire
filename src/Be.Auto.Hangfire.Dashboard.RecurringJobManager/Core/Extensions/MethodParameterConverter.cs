@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Reflection;
-using System.Text.RegularExpressions;
-using Hangfire.Dashboard;
+using System.Threading;
+using Hangfire;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -10,6 +10,15 @@ namespace Be.Auto.Hangfire.Dashboard.RecurringJobManager.Core.Extensions;
 internal class MethodParameterConverter(MethodInfo methodInfo) : JsonConverter
 {
     private readonly ParameterInfo[] _parameters = methodInfo.GetParameters();
+
+    private static bool IsCancellationTokenType(Type type)
+    {
+        return type == typeof(CancellationToken) ||
+               type == typeof(IJobCancellationToken) ||
+               (Nullable.GetUnderlyingType(type) is { } underlyingType &&
+                underlyingType == typeof(CancellationToken));
+    }
+
     public override bool CanConvert(Type objectType)
     {
         return objectType == typeof(object[]);
@@ -25,6 +34,12 @@ internal class MethodParameterConverter(MethodInfo methodInfo) : JsonConverter
         for (var i = 0; i < _parameters.Length; i++)
         {
             var parameter = _parameters[i];
+
+            if (IsCancellationTokenType(parameter.ParameterType))
+            {
+                parameterValues[i] = null;
+                continue;
+            }
 
             var jsonProperty = jsonObject[parameter.Name];
 
@@ -63,6 +78,9 @@ internal class MethodParameterConverter(MethodInfo methodInfo) : JsonConverter
         {
             for (var i = 0; i < valueArray.Length; i++)
             {
+                if (IsCancellationTokenType(_parameters[i].ParameterType))
+                    continue;
+
                 writer.WritePropertyName(_parameters[i].Name);
 
                 serializer.Serialize(writer, valueArray[i], _parameters[i].ParameterType);

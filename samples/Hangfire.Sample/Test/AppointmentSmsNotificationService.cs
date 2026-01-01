@@ -26,7 +26,27 @@
             await Task.Delay(5000, source.Token);
         }
 
+        public async Task SendSmsWithCancellation(string message, int delaySeconds, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var jobId = Guid.NewGuid();
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Job {jobId} started - Message: {message}");
 
+                for (var i = 0; i < delaySeconds; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Job {jobId} - Working... {i + 1}/{delaySeconds}");
+                    await Task.Delay(1000, cancellationToken);
+                }
 
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Job {jobId} completed successfully!");
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("OperationCanceledException");
+                throw;
+            }
+        }
     }
 }

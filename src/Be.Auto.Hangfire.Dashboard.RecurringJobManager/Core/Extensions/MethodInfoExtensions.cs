@@ -3,7 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using Be.Auto.Hangfire.Dashboard.RecurringJobManager.Models;
+using Hangfire;
 using Newtonsoft.Json;
 using NJsonSchema;
 
@@ -11,6 +13,14 @@ namespace Be.Auto.Hangfire.Dashboard.RecurringJobManager.Core.Extensions
 {
     internal static class MethodInfoExtensions
     {
+        private static bool IsCancellationTokenType(Type type)
+        {
+            return type == typeof(CancellationToken) ||
+                   type == typeof(IJobCancellationToken) ||
+                   (Nullable.GetUnderlyingType(type) is { } underlyingType &&
+                    (underlyingType == typeof(CancellationToken)));
+        }
+
         public static string GenerateFullName(this MethodInfo @this)
         {
             return $"{@this.Name}({string.Join(",", @this.GetParameters().Select(x => $"{x.ParameterType.Name} {x.Name}"))})";
@@ -40,6 +50,8 @@ namespace Be.Auto.Hangfire.Dashboard.RecurringJobManager.Core.Extensions
         }
         public static object CreateInstanceWithDefaults(this Type type)
         {
+            if (IsCancellationTokenType(type))
+                return null;
 
             if (type.IsAbstract || type.IsInterface || type.IsGenericTypeDefinition)
                 return null;
@@ -152,6 +164,9 @@ namespace Be.Auto.Hangfire.Dashboard.RecurringJobManager.Core.Extensions
 
                 foreach (var param in method.GetParameters())
                 {
+                    if (IsCancellationTokenType(param.ParameterType))
+                        continue;
+
                     parameterTypes[param.Name] = param.ParameterType;
                 }
 
